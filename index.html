@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Staff Dashboard - First Aid & CPR 2026</title>
     
-    <!-- Bootstrap 5 & Google Fonts -->
+    <!-- CSS Dependencies -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -22,7 +22,8 @@
             background-color: #f0f4f8;
             color: #1e293b;
         }
-        .navbar { background: linear-gradient(135deg, var(--primary), var(--accent)); }
+        .navbar { background: linear-gradient(135deg, var(--primary), var(--accent)); padding: 10px 0; }
+        .navbar-brand img { height: 50px; filter: brightness(0) invert(1); }
         .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .nav-pills .nav-link { color: #64748b; border-radius: 10px; font-weight: 600; }
         .nav-pills .nav-link.active { background-color: var(--primary); }
@@ -30,21 +31,36 @@
         .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
         #searchResult { display: none; }
         .loader { display: none; text-align: center; padding: 20px; }
+        /* Scanner Style */
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; border: none !important; }
+        #reader__dashboard_section_csr button { 
+            background-color: var(--accent) !important; 
+            color: white !important; 
+            border: none !important; 
+            padding: 8px 15px !important; 
+            border-radius: 8px !important;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
 
 <nav class="navbar navbar-dark shadow-sm">
-    <div class="container">
-        <span class="navbar-brand mb-0 h1"><i class="fas fa-user-shield me-2"></i> ระบบจัดการเจ้าหน้าที่</span>
+    <div class="container d-flex justify-content-between align-items-center">
+        <div class="navbar-brand d-flex align-items-center">
+            <img src="https://cppqbctiybszcneqawjw.supabase.co/storage/v1/object/public/PIC/Logo-gold.png" alt="Logo" class="me-2">
+            <div>
+                <div style="font-size: 0.9rem; font-weight: 300; line-height: 1;">Staff Dashboard</div>
+                <div style="font-size: 1.1rem; font-weight: 700;">ระบบจัดการเจ้าหน้าที่</div>
+            </div>
+        </div>
     </div>
 </nav>
 
 <div class="container py-4">
-    <!-- เมนูหลัก (Tabs) -->
     <ul class="nav nav-pills nav-fill mb-4 p-1 bg-white rounded-3 shadow-sm" id="staffTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#checkinTab"><i class="fas fa-qrcode me-1"></i> ลงชื่อ</button>
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#checkinTab"><i class="fas fa-qrcode me-1"></i> ลงชื่อ/สแกน</button>
         </li>
         <li class="nav-item">
             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#reportTab" onclick="loadSessionsForReport()"><i class="fas fa-list me-1"></i> รายชื่อ</button>
@@ -55,20 +71,27 @@
     </ul>
 
     <div class="tab-content">
-        
-        <!-- 1. หน้าลงชื่อ (Check-in/Out) -->
+        <!-- 1. หน้าลงชื่อ (Check-in/Out) พร้อมระบบสแกน -->
         <div class="tab-pane fade show active" id="checkinTab">
+            <!-- QR Scanner Card -->
+            <div class="card mb-3 p-3">
+                <h6 class="fw-bold text-muted mb-3 text-center"><i class="fas fa-camera me-2"></i> สแกน QR Code จากอีเมลผู้สมัคร</h6>
+                <div id="reader"></div>
+            </div>
+
+            <!-- Manual Search Card -->
             <div class="card p-4">
-                <h5 class="fw-bold mb-3">ค้นหาผู้ลงทะเบียน</h5>
+                <h6 class="fw-bold text-muted mb-3">หรือค้นหาด้วยรหัส/เบอร์โทร</h6>
                 <div class="input-group mb-3">
-                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="กรอกรหัส FA-XXXX หรือเบอร์โทร">
-                    <button class="btn btn-primary" onclick="searchUser()"><i class="fas fa-search"></i></button>
+                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="FA-XXXX หรือ 08XXXXXXXX">
+                    <button class="btn btn-primary px-4" onclick="searchUser()"><i class="fas fa-search"></i></button>
                 </div>
                 
                 <div class="loader" id="searchLoader"><div class="spinner-border text-primary"></div></div>
 
+                <!-- Result Area -->
                 <div id="searchResult">
-                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                    <div class="p-3 bg-light rounded-3 mb-3 border text-center">
                         <h4 id="resName" class="fw-bold text-primary mb-1"></h4>
                         <p id="resID" class="text-danger fw-bold mb-1"></p>
                         <p id="resSession" class="text-muted mb-0"></p>
@@ -89,7 +112,7 @@
         <div class="tab-pane fade" id="reportTab">
             <div class="card p-3">
                 <div class="mb-3">
-                    <label class="form-label fw-bold">เลือกรอบที่ต้องการดู</label>
+                    <label class="form-label fw-bold text-primary">เลือกรอบที่ต้องการดู</label>
                     <select class="form-select" id="reportSessionSelect" onchange="loadParticipants()">
                         <option value="">-- เลือกรอบ --</option>
                     </select>
@@ -112,10 +135,10 @@
         <!-- 3. หน้าตั้งค่า (Config) -->
         <div class="tab-pane fade" id="configTab">
             <div class="card p-3">
-                <h5 class="fw-bold mb-3">จัดการจำนวนที่รับ (Quota)</h5>
+                <h5 class="fw-bold mb-3 text-primary">จัดการโควตารอบอบรม</h5>
                 <div class="table-responsive">
                     <table class="table">
-                        <thead>
+                        <thead class="table-light">
                             <tr>
                                 <th>รอบการอบรม</th>
                                 <th width="100">Max</th>
@@ -128,22 +151,38 @@
                 </div>
             </div>
         </div>
-
     </div>
 </div>
 
+<!-- JS Dependencies -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://unpkg.com/html5-qrcode"></script>
 
 <script>
-    // ⚠️ แก้ไข URL นี้ให้เป็น URL Web App ล่าสุดของคุณ
-    const API_URL = "https://script.google.com/macros/s/AKfycbzmltnLo20zGaLgEaToN38NizWH_jqU97vT7x3nYDsqU2eZHvWBdqkxnyZ1skPyZ1XnmA/exec";
-
+    const API_URL = "https://script.google.com/macros/s/AKfycbx5ibwQlYULLpT60hrSDfUgXJ0dx1UF4TTFbDgFrTRAat0txrWvL8rj8O6YKvgGEUPOMQ/exec";
     let currentFoundUser = null;
 
-    // --- ฟังก์ชันค้นหาผู้ใช้งาน ---
-    async function searchUser() {
-        const query = document.getElementById('searchInput').value;
+    // --- 1. ระบบสแกน QR Code ---
+    function onScanSuccess(decodedText, decodedResult) {
+        // เมื่อสแกนเจอ จะใส่ค่ารหัสลงในช่องค้นหาแล้วกดหาให้อัตโนมัติ
+        document.getElementById('searchInput').value = decodedText;
+        searchUser(decodedText);
+        // หยุดสแกนชั่วคราวเพื่อประมวลผล
+        html5QrcodeScanner.clear();
+        setTimeout(renderScanner, 3000); // เริ่มสแกนใหม่หลังจาก 3 วินาที
+    }
+
+    function renderScanner() {
+        const config = { fps: 10, qrbox: {width: 250, height: 250} };
+        html5QrcodeScanner = new Html5QrcodeScanner("reader", config);
+        html5QrcodeScanner.render(onScanSuccess);
+    }
+    renderScanner();
+
+    // --- 2. ฟังก์ชันค้นหาผู้ใช้งาน ---
+    async function searchUser(scannedValue = null) {
+        const query = scannedValue || document.getElementById('searchInput').value;
         if(!query) return;
 
         showLoader('searchLoader', true);
@@ -155,88 +194,94 @@
 
             if(result.success) {
                 const data = result.data;
-                currentFoundUser = query;
-                document.getElementById('resName').innerText = data[2]; // ชื่อ
-                document.getElementById('resID').innerText = data[6];   // ID
+                currentFoundUser = data[6]; // เก็บ ID ไว้ใช้ทำ Action
+                document.getElementById('resName').innerText = data[2];
+                document.getElementById('resID').innerText = data[6];
                 document.getElementById('resSession').innerText = `รอบ: ${data[5]}`;
                 document.getElementById('searchResult').style.display = 'block';
+                
+                // สั่นมือถือเมื่อเจอข้อมูล (ถ้าเบราว์เซอร์รองรับ)
+                if (navigator.vibrate) navigator.vibrate(100);
+                
             } else {
-                Swal.fire('ไม่พบข้อมูล', result.message, 'error');
+                Swal.fire('ไม่พบข้อมูล', 'ไม่พบรายชื่อที่ตรงกับ: ' + query, 'error');
             }
         } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
         } finally {
             showLoader('searchLoader', false);
         }
     }
 
-    // --- ฟังก์ชัน Check-in / Out ---
+    // --- 3. ฟังก์ชัน Check-in / Out ---
     async function markAttendance(action) {
         const btn = event.target;
+        const originalText = btn.innerHTML;
         btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
-            const res = await fetch(API_URL, {
+            // ใช้ POST แบบส่ง URLSearchParams ตามระบบ GAS เดิม
+            const response = await fetch(API_URL, {
                 method: 'POST',
-                mode: 'no-cors', // เนื่องจากส่งแบบข้ามโดเมน
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({ action: action, query: currentFoundUser })
             });
             
-            Swal.fire('สำเร็จ', 'ดำเนินการเรียบร้อยแล้ว', 'success');
+            Swal.fire({
+                title: 'สำเร็จ!',
+                text: 'บันทึกสถานะเรียบร้อยแล้ว',
+                icon: 'success',
+                timer: 2000
+            });
+            
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResult').style.display = 'none';
         } catch (e) {
-            Swal.fire('แจ้งเตือน', 'ระบบกำลังบันทึกข้อมูล โปรดตรวจสอบใน Sheet อีกครั้ง', 'info');
+            Swal.fire('ข้อความจากระบบ', 'ดำเนินการเสร็จสิ้น (โปรดรีเฟรช Sheet เพื่อตรวจสอบ)', 'info');
         } finally {
             btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 
-    // --- โหลดรายชื่อผู้เข้าร่วมตามรอบ ---
+    // --- 4. ฟังก์ชันโหลดรายงานและตั้งค่า ---
     async function loadSessionsForReport() {
         const sel = document.getElementById('reportSessionSelect');
         const res = await fetch(`${API_URL}?action=getSessions`);
         const sessions = await res.json();
         sel.innerHTML = '<option value="">-- เลือกรอบ --</option>';
-        sessions.forEach(s => {
-            sel.innerHTML += `<option value="${s.name}">${s.name}</option>`;
-        });
+        sessions.forEach(s => { sel.innerHTML += `<option value="${s.name}">${s.name}</option>`; });
     }
 
     async function loadParticipants() {
         const session = document.getElementById('reportSessionSelect').value;
         if(!session) return;
-        
         const tbody = document.getElementById('participantList');
         tbody.innerHTML = '<tr><td colspan="3" class="text-center">กำลังโหลด...</td></tr>';
-
         const res = await fetch(`${API_URL}?action=getParticipants&session=${session}`);
         const data = await res.json();
-
         tbody.innerHTML = '';
         data.slice(1).forEach(row => {
             const status = row[8] ? '<span class="status-badge bg-success text-white">มาแล้ว</span>' : '<span class="status-badge bg-secondary text-white">ยังไม่มา</span>';
-            tbody.innerHTML += `<tr><td>${row[2]}</td><td>${row[6]}</td><td>${status}</td></tr>`;
+            tbody.innerHTML += `<tr><td>${row[2]}</td><td><small>${row[6]}</small></td><td>${status}</td></tr>`;
         });
     }
 
-    // --- จัดการ Config ---
     async function loadConfig() {
         const tbody = document.getElementById('configTableBody');
         tbody.innerHTML = '<tr><td colspan="4" class="text-center">กำลังโหลด...</td></tr>';
-        
         const res = await fetch(`${API_URL}?action=getSessions`);
         const sessions = await res.json();
-
         tbody.innerHTML = '';
         sessions.forEach(s => {
             tbody.innerHTML += `
                 <tr>
                     <td><small>${s.name}</small></td>
-                    <td><input type="number" class="form-control form-control-sm" id="max_${s.name}" value="${s.max}"></td>
+                    <td><input type="number" class="form-control form-control-sm" id="max_${s.name}" value="${s.max}" style="width:70px"></td>
                     <td class="text-center">${s.booked}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')">เซฟ</button></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')"><i class="fas fa-save"></i></button></td>
                 </tr>`;
         });
     }
@@ -248,7 +293,7 @@
             mode: 'no-cors',
             body: new URLSearchParams({ action: 'updateConfig', sessionName: sessionName, newMax: newMax })
         });
-        Swal.fire('สำเร็จ', 'อัปเดตจำนวนแล้ว', 'success');
+        Swal.fire('สำเร็จ', 'อัปเดตโควตาแล้ว', 'success');
     }
 
     function showLoader(id, show) { document.getElementById(id).style.display = show ? 'block' : 'none'; }
