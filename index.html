@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Dashboard - First Aid & CPR 2026</title>
+    
+    <!-- Bootstrap 5 & Google Fonts -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --primary: #071f54;
+            --accent: #1976d2;
+            --success: #28a745;
+            --warning: #ffc107;
+        }
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f0f4f8;
+            color: #1e293b;
+        }
+        .navbar { background: linear-gradient(135deg, var(--primary), var(--accent)); }
+        .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .nav-pills .nav-link { color: #64748b; border-radius: 10px; font-weight: 600; }
+        .nav-pills .nav-link.active { background-color: var(--primary); }
+        .btn-action { height: 60px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; }
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
+        #searchResult { display: none; }
+        .loader { display: none; text-align: center; padding: 20px; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-dark shadow-sm">
+    <div class="container">
+        <span class="navbar-brand mb-0 h1"><i class="fas fa-user-shield me-2"></i> ระบบจัดการเจ้าหน้าที่</span>
+    </div>
+</nav>
+
+<div class="container py-4">
+    <!-- เมนูหลัก (Tabs) -->
+    <ul class="nav nav-pills nav-fill mb-4 p-1 bg-white rounded-3 shadow-sm" id="staffTab" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#checkinTab"><i class="fas fa-qrcode me-1"></i> ลงชื่อ</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#reportTab" onclick="loadSessionsForReport()"><i class="fas fa-list me-1"></i> รายชื่อ</button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="pill" data-bs-target="#configTab" onclick="loadConfig()"><i class="fas fa-cog me-1"></i> ตั้งค่า</button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        
+        <!-- 1. หน้าลงชื่อ (Check-in/Out) -->
+        <div class="tab-pane fade show active" id="checkinTab">
+            <div class="card p-4">
+                <h5 class="fw-bold mb-3">ค้นหาผู้ลงทะเบียน</h5>
+                <div class="input-group mb-3">
+                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="กรอกรหัส FA-XXXX หรือเบอร์โทร">
+                    <button class="btn btn-primary" onclick="searchUser()"><i class="fas fa-search"></i></button>
+                </div>
+                
+                <div class="loader" id="searchLoader"><div class="spinner-border text-primary"></div></div>
+
+                <div id="searchResult">
+                    <div class="p-3 bg-light rounded-3 mb-3 border">
+                        <h4 id="resName" class="fw-bold text-primary mb-1"></h4>
+                        <p id="resID" class="text-danger fw-bold mb-1"></p>
+                        <p id="resSession" class="text-muted mb-0"></p>
+                    </div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <button class="btn btn-success w-100 btn-action" id="btnIn" onclick="markAttendance('confirmCheckIn')">CHECK-IN</button>
+                        </div>
+                        <div class="col-6">
+                            <button class="btn btn-warning w-100 btn-action" id="btnOut" onclick="markAttendance('confirmCheckOut')">CHECK-OUT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. หน้าดูรายชื่อ (Report) -->
+        <div class="tab-pane fade" id="reportTab">
+            <div class="card p-3">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">เลือกรอบที่ต้องการดู</label>
+                    <select class="form-select" id="reportSessionSelect" onchange="loadParticipants()">
+                        <option value="">-- เลือกรอบ --</option>
+                    </select>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>ชื่อ-นามสกุล</th>
+                                <th>รหัส</th>
+                                <th>สถานะ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="participantList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. หน้าตั้งค่า (Config) -->
+        <div class="tab-pane fade" id="configTab">
+            <div class="card p-3">
+                <h5 class="fw-bold mb-3">จัดการจำนวนที่รับ (Quota)</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>รอบการอบรม</th>
+                                <th width="100">Max</th>
+                                <th width="80">จอง</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="configTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<script>
+    // ⚠️ แก้ไข URL นี้ให้เป็น URL Web App ล่าสุดของคุณ
+    const API_URL = "https://script.google.com/macros/s/AKfycbzmltnLo20zGaLgEaToN38NizWH_jqU97vT7x3nYDsqU2eZHvWBdqkxnyZ1skPyZ1XnmA/exec";
+
+    let currentFoundUser = null;
+
+    // --- ฟังก์ชันค้นหาผู้ใช้งาน ---
+    async function searchUser() {
+        const query = document.getElementById('searchInput').value;
+        if(!query) return;
+
+        showLoader('searchLoader', true);
+        document.getElementById('searchResult').style.display = 'none';
+
+        try {
+            const res = await fetch(`${API_URL}?action=searchUser&query=${query}`);
+            const result = await res.json();
+
+            if(result.success) {
+                const data = result.data;
+                currentFoundUser = query;
+                document.getElementById('resName').innerText = data[2]; // ชื่อ
+                document.getElementById('resID').innerText = data[6];   // ID
+                document.getElementById('resSession').innerText = `รอบ: ${data[5]}`;
+                document.getElementById('searchResult').style.display = 'block';
+            } else {
+                Swal.fire('ไม่พบข้อมูล', result.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+        } finally {
+            showLoader('searchLoader', false);
+        }
+    }
+
+    // --- ฟังก์ชัน Check-in / Out ---
+    async function markAttendance(action) {
+        const btn = event.target;
+        btn.disabled = true;
+
+        try {
+            const res = await fetch(API_URL, {
+                method: 'POST',
+                mode: 'no-cors', // เนื่องจากส่งแบบข้ามโดเมน
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ action: action, query: currentFoundUser })
+            });
+            
+            Swal.fire('สำเร็จ', 'ดำเนินการเรียบร้อยแล้ว', 'success');
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResult').style.display = 'none';
+        } catch (e) {
+            Swal.fire('แจ้งเตือน', 'ระบบกำลังบันทึกข้อมูล โปรดตรวจสอบใน Sheet อีกครั้ง', 'info');
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    // --- โหลดรายชื่อผู้เข้าร่วมตามรอบ ---
+    async function loadSessionsForReport() {
+        const sel = document.getElementById('reportSessionSelect');
+        const res = await fetch(`${API_URL}?action=getSessions`);
+        const sessions = await res.json();
+        sel.innerHTML = '<option value="">-- เลือกรอบ --</option>';
+        sessions.forEach(s => {
+            sel.innerHTML += `<option value="${s.name}">${s.name}</option>`;
+        });
+    }
+
+    async function loadParticipants() {
+        const session = document.getElementById('reportSessionSelect').value;
+        if(!session) return;
+        
+        const tbody = document.getElementById('participantList');
+        tbody.innerHTML = '<tr><td colspan="3" class="text-center">กำลังโหลด...</td></tr>';
+
+        const res = await fetch(`${API_URL}?action=getParticipants&session=${session}`);
+        const data = await res.json();
+
+        tbody.innerHTML = '';
+        data.slice(1).forEach(row => {
+            const status = row[8] ? '<span class="status-badge bg-success text-white">มาแล้ว</span>' : '<span class="status-badge bg-secondary text-white">ยังไม่มา</span>';
+            tbody.innerHTML += `<tr><td>${row[2]}</td><td>${row[6]}</td><td>${status}</td></tr>`;
+        });
+    }
+
+    // --- จัดการ Config ---
+    async function loadConfig() {
+        const tbody = document.getElementById('configTableBody');
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center">กำลังโหลด...</td></tr>';
+        
+        const res = await fetch(`${API_URL}?action=getSessions`);
+        const sessions = await res.json();
+
+        tbody.innerHTML = '';
+        sessions.forEach(s => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><small>${s.name}</small></td>
+                    <td><input type="number" class="form-control form-control-sm" id="max_${s.name}" value="${s.max}"></td>
+                    <td class="text-center">${s.booked}</td>
+                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')">เซฟ</button></td>
+                </tr>`;
+        });
+    }
+
+    async function updateMax(sessionName) {
+        const newMax = document.getElementById(`max_${sessionName}`).value;
+        await fetch(API_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: new URLSearchParams({ action: 'updateConfig', sessionName: sessionName, newMax: newMax })
+        });
+        Swal.fire('สำเร็จ', 'อัปเดตจำนวนแล้ว', 'success');
+    }
+
+    function showLoader(id, show) { document.getElementById(id).style.display = show ? 'block' : 'none'; }
+</script>
+
+</body>
+</html>
