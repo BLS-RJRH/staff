@@ -37,6 +37,11 @@
         /* Custom Radio Buttons */
         .btn-check:checked + .btn-outline-success { background-color: #198754; color: white; border-color: #198754; }
         .btn-check:checked + .btn-outline-warning { background-color: #ffc107; color: #000; border-color: #ffc107; }
+        
+        /* Action Buttons */
+        .btn-action-sm { padding: 0.25rem 0.5rem; font-size: 0.85rem; border-radius: 6px; }
+        .status-toggle { cursor: pointer; transition: 0.2s; padding: 6px 10px; }
+        .status-toggle:hover { opacity: 0.8; }
     </style>
 </head>
 <body>
@@ -147,7 +152,7 @@
                         <input type="text" id="newSessionName" class="form-control" placeholder="ชื่อรอบ (เช่น 17 ก.ค. 69 รอบเช้า)">
                     </div>
                     <div class="col-md-3 col-8">
-                        <input type="number" id="newSessionMax" class="form-control" placeholder="จำนวนที่รับ">
+                        <input type="number" id="newSessionMax" class="form-control" placeholder="จำนวนรับ">
                     </div>
                     <div class="col-md-2 col-4">
                         <button class="btn btn-success w-100 fw-bold" onclick="addNewSession()">เพิ่ม</button>
@@ -158,13 +163,14 @@
             <div class="card p-3 shadow-sm border-0">
                 <h5 class="fw-bold mb-3 text-primary">จัดการโควตารอบอบรม</h5>
                 <div class="table-responsive">
-                    <table class="table">
+                    <table class="table align-middle">
                         <thead class="table-light">
                             <tr>
                                 <th>รอบการอบรม</th>
-                                <th width="100">Max</th>
-                                <th width="80">จอง</th>
-                                <th></th>
+                                <th width="70" class="text-center">สถานะ</th>
+                                <th width="70" class="text-center">Max</th>
+                                <th width="50" class="text-center">จอง</th>
+                                <th width="100" class="text-center">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody id="configTableBody"></tbody>
@@ -189,7 +195,6 @@
 
     // --- 1. ระบบจัดการกล้อง ---
     async function startScanner() {
-        // ซ่อนผลลัพธ์เก่าก่อน
         document.getElementById('actionResult').style.display = 'none';
         
         if (!html5QrCode) {
@@ -202,7 +207,6 @@
         const config = { fps: 10, qrbox: { width: 250, height: 250 } };
         
         try {
-            // บังคับใช้กล้องหลัง
             await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
         } catch (err) {
             console.error(err);
@@ -226,10 +230,7 @@
     function onScanSuccess(decodedText, decodedResult) {
         if(isProcessing) return; 
         document.getElementById('searchInput').value = decodedText;
-        
-        // สแกนติดปุ๊บ ปิดกล้องทันที
         stopScanner(); 
-        
         executeAction(decodedText);
     }
 
@@ -265,7 +266,6 @@
                 resultDiv.innerHTML = `<div class="alert alert-success fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             } else {
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                // ถ้าซ้ำ หรือ ไม่พบข้อมูล จะโชว์กรอบสีแดง
                 resultDiv.innerHTML = `<div class="alert alert-danger fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-times-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             }
         } catch (e) {
@@ -303,21 +303,33 @@
         });
     }
 
-    // --- 4. ฟังก์ชันจัดการ Config (โควตา และ เพิ่มรอบ) ---
+    // --- 4. ฟังก์ชันจัดการ Config ---
     async function loadConfig() {
         const tbody = document.getElementById('configTableBody');
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center">กำลังโหลด...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">กำลังโหลด...</td></tr>';
         const res = await fetch(`${API_URL}?action=getSessions&t=${new Date().getTime()}`);
         const sessions = await res.json();
         
         tbody.innerHTML = '';
         sessions.forEach(s => {
+            // สร้างป้ายสถานะที่กดได้ (Toggle)
+            const statusBadge = s.status === 'Active' 
+                ? `<span class="badge bg-success status-toggle" onclick="toggleSession('${s.name}', 'Closed')" title="กดเพื่อปิดซ่อนรอบนี้">เปิดรับ</span>`
+                : `<span class="badge bg-secondary status-toggle" onclick="toggleSession('${s.name}', 'Active')" title="กดเพื่อเปิดรับสมัครใหม่">ปิดซ่อน</span>`;
+
             tbody.innerHTML += `
                 <tr>
-                    <td><small>${s.name}</small></td>
-                    <td><input type="number" class="form-control form-control-sm text-center" id="max_${s.name}" value="${s.max}" style="width:70px"></td>
-                    <td class="text-center">${s.booked}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')"><i class="fas fa-save"></i> แก้ไข</button></td>
+                    <td>
+                        <div class="fw-bold mb-1" style="font-size:0.95rem;">${s.name}</div>
+                        <button class="btn btn-sm btn-link text-primary p-0 text-decoration-none" onclick="renameSession('${s.name}')"><i class="fas fa-edit"></i> แก้ไขชื่อ</button>
+                    </td>
+                    <td class="text-center align-middle">${statusBadge}</td>
+                    <td class="text-center px-1 align-middle"><input type="number" class="form-control form-control-sm text-center mx-auto" id="max_${s.name}" value="${s.max}" style="width:65px"></td>
+                    <td class="text-center px-1 align-middle">${s.booked}</td>
+                    <td class="text-center px-1 align-middle">
+                        <button class="btn btn-action-sm btn-primary w-100 mb-1" onclick="updateMax('${s.name}')"><i class="fas fa-save"></i> เซฟ</button>
+                        <button class="btn btn-action-sm btn-danger w-100" onclick="deleteSession('${s.name}')"><i class="fas fa-trash"></i> ลบ</button>
+                    </td>
                 </tr>`;
         });
     }
@@ -325,53 +337,98 @@
     async function updateMax(sessionName) {
         const newMax = document.getElementById(`max_${sessionName}`).value;
         try {
-            const formData = new URLSearchParams();
-            formData.append('action', 'updateConfig');
-            formData.append('sessionName', sessionName);
-            formData.append('newMax', newMax);
-
+            const formData = new URLSearchParams({ action: 'updateConfig', sessionName: sessionName, newMax: newMax });
             const response = await fetch(API_URL, { method: 'POST', body: formData });
             const result = await response.json();
-            
-            if(result.success) {
-                Swal.fire('สำเร็จ', result.message, 'success');
-            } else {
-                Swal.fire('ข้อผิดพลาด', result.message, 'error');
-            }
-        } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'อัปเดตล้มเหลว', 'error');
-        }
+            if(result.success) Swal.fire('สำเร็จ', result.message, 'success');
+            else Swal.fire('ข้อผิดพลาด', result.message, 'error');
+        } catch (e) { Swal.fire('เกิดข้อผิดพลาด', 'อัปเดตล้มเหลว', 'error'); }
     }
 
-    // ฟังก์ชันเพิ่มรอบการอบรมใหม่
     async function addNewSession() {
         const name = document.getElementById('newSessionName').value.trim();
         const max = document.getElementById('newSessionMax').value;
-        
-        if(!name || !max) {
-            Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อรอบและจำนวนที่รับให้ครบถ้วน', 'warning');
-            return;
-        }
+        if(!name || !max) { Swal.fire('แจ้งเตือน', 'กรุณากรอกข้อมูลให้ครบถ้วน', 'warning'); return; }
 
         try {
-            const formData = new URLSearchParams();
-            formData.append('action', 'addSession');
-            formData.append('sessionName', name);
-            formData.append('maxSlots', max);
-
+            const formData = new URLSearchParams({ action: 'addSession', sessionName: name, maxSlots: max });
             const response = await fetch(API_URL, { method: 'POST', body: formData });
             const result = await response.json();
-            
             if(result.success) {
                 Swal.fire('สำเร็จ', result.message, 'success');
                 document.getElementById('newSessionName').value = '';
                 document.getElementById('newSessionMax').value = '';
-                loadConfig(); // โหลดตารางใหม่
-            } else {
-                Swal.fire('ข้อผิดพลาด', result.message, 'error');
+                loadConfig(); 
+            } else { Swal.fire('ข้อผิดพลาด', result.message, 'error'); }
+        } catch (e) { Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเพิ่มรอบได้', 'error'); }
+    }
+
+    // 🟢 สลับสถานะ เปิดรับ / ปิดซ่อน
+    async function toggleSession(sessionName, newStatus) {
+        try {
+            const formData = new URLSearchParams({ action: 'toggleSession', sessionName: sessionName, status: newStatus });
+            const response = await fetch(API_URL, { method: 'POST', body: formData });
+            const result = await response.json();
+            if(result.success) {
+                loadConfig(); // รีเฟรชตารางเพื่ออัปเดตป้ายสถานะ
+            } else { Swal.fire('ข้อผิดพลาด', result.message, 'error'); }
+        } catch (e) { Swal.fire('เกิดข้อผิดพลาด', 'เปลี่ยนสถานะล้มเหลว', 'error'); }
+    }
+
+    // 🟠 เปลี่ยนชื่อรอบ
+    async function renameSession(oldName) {
+        const { value: newName } = await Swal.fire({
+            title: 'เปลี่ยนชื่อรอบการอบรม',
+            input: 'text',
+            inputLabel: 'ตั้งชื่อรอบใหม่',
+            inputValue: oldName,
+            showCancelButton: true,
+            confirmButtonText: 'บันทึก',
+            cancelButtonText: 'ยกเลิก',
+            inputValidator: (value) => {
+                if (!value) return 'กรุณากรอกชื่อรอบ!'
+                if (value === oldName) return 'ชื่อรอบเหมือนเดิม!'
             }
-        } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเพิ่มรอบได้', 'error');
+        });
+
+        if (newName) {
+            Swal.fire({ title: 'กำลังบันทึก...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            try {
+                const formData = new URLSearchParams({ action: 'renameSession', oldName: oldName, newName: newName });
+                const response = await fetch(API_URL, { method: 'POST', body: formData });
+                const result = await response.json();
+                if(result.success) {
+                    Swal.fire('สำเร็จ', result.message, 'success');
+                    loadConfig();
+                } else Swal.fire('ข้อผิดพลาด', result.message, 'error');
+            } catch(e) { Swal.fire('เกิดข้อผิดพลาด', 'อัปเดตล้มเหลว', 'error'); }
+        }
+    }
+
+    // 🔴 ลบรอบการอบรม
+    async function deleteSession(sessionName) {
+        const confirm = await Swal.fire({
+            title: 'ยืนยันการลบรอบ?',
+            html: `คุณต้องการลบรอบ <b>"${sessionName}"</b> ใช่หรือไม่?<br><small class="text-danger">⚠️ หากลบแล้วจะไม่สามารถกู้คืนได้</small>`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="fas fa-trash"></i> ใช่, ลบเลย',
+            cancelButtonText: 'ยกเลิก'
+        });
+
+        if (confirm.isConfirmed) {
+            Swal.fire({ title: 'กำลังลบ...', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); }});
+            try {
+                const formData = new URLSearchParams({ action: 'deleteSession', sessionName: sessionName });
+                const response = await fetch(API_URL, { method: 'POST', body: formData });
+                const result = await response.json();
+                if(result.success) {
+                    Swal.fire('ลบสำเร็จ', result.message, 'success');
+                    loadConfig();
+                } else Swal.fire('ข้อผิดพลาด', result.message, 'error');
+            } catch(e) { Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถลบได้', 'error'); }
         }
     }
 
