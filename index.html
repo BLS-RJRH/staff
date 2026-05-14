@@ -27,20 +27,12 @@
         .card { border: none; border-radius: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); margin-bottom: 20px; }
         .nav-pills .nav-link { color: #64748b; border-radius: 10px; font-weight: 600; }
         .nav-pills .nav-link.active { background-color: var(--primary); }
-        .btn-action { height: 60px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; }
         .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
         .loader { display: none; text-align: center; padding: 20px; }
         
-        /* Scanner Style */
-        #reader { width: 100%; border-radius: 15px; overflow: hidden; border: none !important; }
-        #reader__dashboard_section_csr button { 
-            background-color: var(--accent) !important; 
-            color: white !important; 
-            border: none !important; 
-            padding: 8px 15px !important; 
-            border-radius: 8px !important;
-            margin-bottom: 10px;
-        }
+        /* Custom Scanner Style */
+        #reader { width: 100%; border-radius: 15px; overflow: hidden; border: 2px solid #e2e8f0; background-color: #000; }
+        #reader video { object-fit: cover; }
         
         /* Custom Radio Buttons */
         .btn-check:checked + .btn-outline-success { background-color: #198754; color: white; border-color: #198754; }
@@ -77,23 +69,40 @@
     <div class="tab-content">
         <!-- 1. หน้าลงชื่อ (Check-in/Out) -->
         <div class="tab-pane fade show active" id="checkinTab">
-            <div class="d-flex justify-content-center mb-3">
-                <div class="btn-group w-100 shadow-sm" role="group">
-                    <input type="radio" class="btn-check" name="scanMode" id="modeIn" value="confirmCheckIn" autocomplete="off" checked>
-                    <label class="btn btn-outline-success fs-5 fw-bold py-3" for="modeIn"><i class="fas fa-sign-in-alt me-2"></i>โหมดเช็คอิน</label>
+            
+            <div class="card mb-3 p-4 border-0 bg-white shadow-sm">
+                <!-- Mode Selector -->
+                <h6 class="fw-bold text-muted mb-2 text-center">1. เลือกระบบที่ต้องการ</h6>
+                <div class="d-flex justify-content-center mb-4">
+                    <div class="btn-group w-100 shadow-sm" role="group">
+                        <input type="radio" class="btn-check" name="scanMode" id="modeIn" value="confirmCheckIn" autocomplete="off" checked>
+                        <label class="btn btn-outline-success fs-5 fw-bold py-2" for="modeIn"><i class="fas fa-sign-in-alt me-2"></i>โหมดเช็คอิน</label>
 
-                    <input type="radio" class="btn-check" name="scanMode" id="modeOut" value="confirmCheckOut" autocomplete="off">
-                    <label class="btn btn-outline-warning fs-5 fw-bold py-3" for="modeOut"><i class="fas fa-sign-out-alt me-2"></i>โหมดเช็คเอาท์</label>
+                        <input type="radio" class="btn-check" name="scanMode" id="modeOut" value="confirmCheckOut" autocomplete="off">
+                        <label class="btn btn-outline-warning fs-5 fw-bold py-2" for="modeOut"><i class="fas fa-sign-out-alt me-2"></i>โหมดเช็คเอาท์</label>
+                    </div>
                 </div>
+
+                <!-- ปุ่มเปิดกล้อง -->
+                <div class="text-center mb-3" id="cameraStartSection">
+                    <button class="btn btn-primary btn-lg w-100 fw-bold shadow-sm py-3" onclick="startScanner()">
+                        <i class="fas fa-camera fa-lg me-2"></i> เปิดกล้องสแกน QR
+                    </button>
+                </div>
+
+                <!-- พื้นที่กล้อง (ปุ่มปิดกล้องย้ายมาอยู่ด้านบนแล้ว) -->
+                <div id="scannerContainer" style="display: none;" class="mb-3">
+                    <button class="btn btn-danger w-100 fw-bold shadow-sm py-2 mb-3" onclick="stopScanner()">
+                        <i class="fas fa-times-circle me-2"></i> ปิดกล้อง
+                    </button>
+                    <div id="reader" class="mb-2"></div>
+                </div>
+
+                <!-- Result Alert -->
+                <div id="actionResult" style="display: none;" class="mt-3"></div>
             </div>
 
-            <div id="actionResult" style="display: none;" class="mb-3"></div>
-
-            <div class="card mb-3 p-3 border-0 bg-white shadow-sm">
-                <h6 class="fw-bold text-muted mb-3 text-center"><i class="fas fa-camera me-2"></i> สแกน QR Code เพื่อบันทึกอัตโนมัติ</h6>
-                <div id="reader"></div>
-            </div>
-
+            <!-- Manual Search Card -->
             <div class="card p-4 border-0 shadow-sm">
                 <h6 class="fw-bold text-muted mb-3">พิมพ์รหัสด้วยตัวเอง (Manual)</h6>
                 <div class="input-group">
@@ -176,21 +185,58 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbw5ea5gkA-AcRg_rJg7AI3Y5DmxwIwD1gX8-RAlQknkJ-0he8EwejxeCAWMuNyyFpgXuw/exec";
     
     let isProcessing = false;
+    let html5QrCode; 
 
-    // --- 1. ระบบสแกน QR Code (แบบต่อเนื่อง) ---
+    // --- 1. ระบบจัดการกล้อง ---
+    async function startScanner() {
+        // ซ่อนผลลัพธ์เก่าก่อน
+        document.getElementById('actionResult').style.display = 'none';
+        
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("reader");
+        }
+
+        document.getElementById('cameraStartSection').style.display = 'none';
+        document.getElementById('scannerContainer').style.display = 'block';
+
+        const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        
+        try {
+            // บังคับใช้กล้องหลัง
+            await html5QrCode.start({ facingMode: "environment" }, config, onScanSuccess);
+        } catch (err) {
+            console.error(err);
+            Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเปิดกล้องได้ กรุณาให้สิทธิ์การเข้าถึงกล้อง', 'warning');
+            stopScanner();
+        }
+    }
+
+    function stopScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                document.getElementById('cameraStartSection').style.display = 'block';
+                document.getElementById('scannerContainer').style.display = 'none';
+            }).catch(err => console.log(err));
+        } else {
+            document.getElementById('cameraStartSection').style.display = 'block';
+            document.getElementById('scannerContainer').style.display = 'none';
+        }
+    }
+
     function onScanSuccess(decodedText, decodedResult) {
         if(isProcessing) return; 
         document.getElementById('searchInput').value = decodedText;
-        html5QrcodeScanner.clear(); 
+        
+        // สแกนติดปุ๊บ ปิดกล้องทันที
+        stopScanner(); 
+        
         executeAction(decodedText);
     }
 
-    function renderScanner() {
-        const config = { fps: 10, qrbox: {width: 250, height: 250} };
-        html5QrcodeScanner = new Html5QrcodeScanner("reader", config);
-        html5QrcodeScanner.render(onScanSuccess);
-    }
-    renderScanner();
+    // หยุดกล้องอัตโนมัติเมื่อเปลี่ยนแท็บ
+    document.getElementById('staffTab').addEventListener('hide.bs.tab', function (event) {
+        stopScanner();
+    });
 
     // --- 2. การทำงานหลัก (Check-in/Out) ---
     function processManualInput() {
@@ -219,6 +265,7 @@
                 resultDiv.innerHTML = `<div class="alert alert-success fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             } else {
                 if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                // ถ้าซ้ำ หรือ ไม่พบข้อมูล จะโชว์กรอบสีแดง
                 resultDiv.innerHTML = `<div class="alert alert-danger fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-times-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             }
         } catch (e) {
@@ -227,11 +274,7 @@
         } finally {
             showLoader('searchLoader', false);
             document.getElementById('searchInput').value = '';
-            setTimeout(() => {
-                resultDiv.style.display = 'none';
-                renderScanner();
-                isProcessing = false;
-            }, 2500);
+            isProcessing = false;
         }
     }
 
