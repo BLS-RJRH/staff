@@ -73,13 +73,11 @@
     <div class="tab-content">
         <!-- 1. หน้าลงชื่อ (Check-in/Out) พร้อมระบบสแกน -->
         <div class="tab-pane fade show active" id="checkinTab">
-            <!-- QR Scanner Card -->
             <div class="card mb-3 p-3">
                 <h6 class="fw-bold text-muted mb-3 text-center"><i class="fas fa-camera me-2"></i> สแกน QR Code จากอีเมลผู้สมัคร</h6>
                 <div id="reader"></div>
             </div>
 
-            <!-- Manual Search Card -->
             <div class="card p-4">
                 <h6 class="fw-bold text-muted mb-3">หรือค้นหาด้วยรหัส/เบอร์โทร</h6>
                 <div class="input-group mb-3">
@@ -89,7 +87,6 @@
                 
                 <div class="loader" id="searchLoader"><div class="spinner-border text-primary"></div></div>
 
-                <!-- Result Area -->
                 <div id="searchResult">
                     <div class="p-3 bg-light rounded-3 mb-3 border text-center">
                         <h4 id="resName" class="fw-bold text-primary mb-1"></h4>
@@ -160,17 +157,15 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbx5ibwQlYULLpT60hrSDfUgXJ0dx1UF4TTFbDgFrTRAat0txrWvL8rj8O6YKvgGEUPOMQ/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbyZYT4pzuggWa_ITBsvUBGzfxMv264BLcu39yvxLwgsNZEBCAthFzmDKUQEFnXzulMy/exec";
     let currentFoundUser = null;
 
     // --- 1. ระบบสแกน QR Code ---
     function onScanSuccess(decodedText, decodedResult) {
-        // เมื่อสแกนเจอ จะใส่ค่ารหัสลงในช่องค้นหาแล้วกดหาให้อัตโนมัติ
         document.getElementById('searchInput').value = decodedText;
         searchUser(decodedText);
-        // หยุดสแกนชั่วคราวเพื่อประมวลผล
         html5QrcodeScanner.clear();
-        setTimeout(renderScanner, 3000); // เริ่มสแกนใหม่หลังจาก 3 วินาที
+        setTimeout(renderScanner, 3000); 
     }
 
     function renderScanner() {
@@ -180,7 +175,7 @@
     }
     renderScanner();
 
-    // --- 2. ฟังก์ชันค้นหาผู้ใช้งาน ---
+    // --- 2. ฟังก์ชันค้นหาผู้ใช้งาน (อัปเดตแก้ CORS & Caching) ---
     async function searchUser(scannedValue = null) {
         const query = scannedValue || document.getElementById('searchInput').value;
         if(!query) return;
@@ -189,31 +184,34 @@
         document.getElementById('searchResult').style.display = 'none';
 
         try {
-            const res = await fetch(`${API_URL}?action=searchUser&query=${query}`);
+            // เพิ่ม timestamp ป้องกัน Browser นำ Cache เก่ามาใช้
+            const finalUrl = `${API_URL}?action=searchUser&query=${encodeURIComponent(query)}&t=${new Date().getTime()}`;
+            const res = await fetch(finalUrl);
+            
+            if (!res.ok) throw new Error('Network Error');
             const result = await res.json();
 
             if(result.success) {
                 const data = result.data;
-                currentFoundUser = data[6]; // เก็บ ID ไว้ใช้ทำ Action
+                currentFoundUser = data[6]; // เก็บ ID
                 document.getElementById('resName').innerText = data[2];
                 document.getElementById('resID').innerText = data[6];
                 document.getElementById('resSession').innerText = `รอบ: ${data[5]}`;
                 document.getElementById('searchResult').style.display = 'block';
                 
-                // สั่นมือถือเมื่อเจอข้อมูล (ถ้าเบราว์เซอร์รองรับ)
                 if (navigator.vibrate) navigator.vibrate(100);
-                
             } else {
-                Swal.fire('ไม่พบข้อมูล', 'ไม่พบรายชื่อที่ตรงกับ: ' + query, 'error');
+                Swal.fire('ไม่พบข้อมูล', result.message || 'ไม่พบรายชื่อที่ตรงกัน', 'error');
             }
         } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
+            Swal.fire('เกิดข้อผิดพลาด', 'เชื่อมต่อฐานข้อมูลล้มเหลว กรุณาตรวจสอบการ Deploy เว็บแอป', 'error');
+            console.error(e);
         } finally {
             showLoader('searchLoader', false);
         }
     }
 
-    // --- 3. ฟังก์ชัน Check-in / Out ---
+    // --- 3. ฟังก์ชัน Check-in / Out (อัปเดตเอา no-cors ออกเพื่อให้รับ JSON ได้) ---
     async function markAttendance(action) {
         const btn = event.target;
         const originalText = btn.innerHTML;
@@ -221,35 +219,37 @@
         btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
 
         try {
-            // ใช้ POST แบบส่ง URLSearchParams ตามระบบ GAS เดิม
+            const formData = new URLSearchParams();
+            formData.append('action', action);
+            formData.append('query', currentFoundUser);
+
             const response = await fetch(API_URL, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({ action: action, query: currentFoundUser })
+                body: formData
             });
             
-            Swal.fire({
-                title: 'สำเร็จ!',
-                text: 'บันทึกสถานะเรียบร้อยแล้ว',
-                icon: 'success',
-                timer: 2000
-            });
-            
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResult').style.display = 'none';
+            const result = await response.json();
+
+            if(result.success) {
+                Swal.fire({ title: 'สำเร็จ!', text: result.message, icon: 'success', timer: 2000 });
+                document.getElementById('searchInput').value = '';
+                document.getElementById('searchResult').style.display = 'none';
+            } else {
+                Swal.fire('ข้อผิดพลาด', result.message, 'error');
+            }
         } catch (e) {
-            Swal.fire('ข้อความจากระบบ', 'ดำเนินการเสร็จสิ้น (โปรดรีเฟรช Sheet เพื่อตรวจสอบ)', 'info');
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + e.message, 'error');
+            console.error(e);
         } finally {
             btn.disabled = false;
             btn.innerHTML = originalText;
         }
     }
 
-    // --- 4. ฟังก์ชันโหลดรายงานและตั้งค่า ---
+    // --- 4. ฟังก์ชันโหลดรายงานและตั้งค่า (อัปเดตเพิ่ม Cache-busting) ---
     async function loadSessionsForReport() {
         const sel = document.getElementById('reportSessionSelect');
-        const res = await fetch(`${API_URL}?action=getSessions`);
+        const res = await fetch(`${API_URL}?action=getSessions&t=${new Date().getTime()}`);
         const sessions = await res.json();
         sel.innerHTML = '<option value="">-- เลือกรอบ --</option>';
         sessions.forEach(s => { sel.innerHTML += `<option value="${s.name}">${s.name}</option>`; });
@@ -260,8 +260,10 @@
         if(!session) return;
         const tbody = document.getElementById('participantList');
         tbody.innerHTML = '<tr><td colspan="3" class="text-center">กำลังโหลด...</td></tr>';
-        const res = await fetch(`${API_URL}?action=getParticipants&session=${session}`);
+        
+        const res = await fetch(`${API_URL}?action=getParticipants&session=${encodeURIComponent(session)}&t=${new Date().getTime()}`);
         const data = await res.json();
+        
         tbody.innerHTML = '';
         data.slice(1).forEach(row => {
             const status = row[8] ? '<span class="status-badge bg-success text-white">มาแล้ว</span>' : '<span class="status-badge bg-secondary text-white">ยังไม่มา</span>';
@@ -272,8 +274,9 @@
     async function loadConfig() {
         const tbody = document.getElementById('configTableBody');
         tbody.innerHTML = '<tr><td colspan="4" class="text-center">กำลังโหลด...</td></tr>';
-        const res = await fetch(`${API_URL}?action=getSessions`);
+        const res = await fetch(`${API_URL}?action=getSessions&t=${new Date().getTime()}`);
         const sessions = await res.json();
+        
         tbody.innerHTML = '';
         sessions.forEach(s => {
             tbody.innerHTML += `
@@ -288,12 +291,23 @@
 
     async function updateMax(sessionName) {
         const newMax = document.getElementById(`max_${sessionName}`).value;
-        await fetch(API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: new URLSearchParams({ action: 'updateConfig', sessionName: sessionName, newMax: newMax })
-        });
-        Swal.fire('สำเร็จ', 'อัปเดตโควตาแล้ว', 'success');
+        try {
+            const formData = new URLSearchParams();
+            formData.append('action', 'updateConfig');
+            formData.append('sessionName', sessionName);
+            formData.append('newMax', newMax);
+
+            const response = await fetch(API_URL, { method: 'POST', body: formData });
+            const result = await response.json();
+            
+            if(result.success) {
+                Swal.fire('สำเร็จ', result.message, 'success');
+            } else {
+                Swal.fire('ข้อผิดพลาด', result.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('เกิดข้อผิดพลาด', 'อัปเดตล้มเหลว', 'error');
+        }
     }
 
     function showLoader(id, show) { document.getElementById(id).style.display = show ? 'block' : 'none'; }
