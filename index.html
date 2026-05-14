@@ -29,8 +29,8 @@
         .nav-pills .nav-link.active { background-color: var(--primary); }
         .btn-action { height: 60px; font-size: 1.1rem; font-weight: bold; border-radius: 12px; }
         .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85rem; }
-        #searchResult { display: none; }
         .loader { display: none; text-align: center; padding: 20px; }
+        
         /* Scanner Style */
         #reader { width: 100%; border-radius: 15px; overflow: hidden; border: none !important; }
         #reader__dashboard_section_csr button { 
@@ -41,6 +41,10 @@
             border-radius: 8px !important;
             margin-bottom: 10px;
         }
+        
+        /* Custom Radio Buttons */
+        .btn-check:checked + .btn-outline-success { background-color: #198754; color: white; border-color: #198754; }
+        .btn-check:checked + .btn-outline-warning { background-color: #ffc107; color: #000; border-color: #ffc107; }
     </style>
 </head>
 <body>
@@ -60,7 +64,7 @@
 <div class="container py-4">
     <ul class="nav nav-pills nav-fill mb-4 p-1 bg-white rounded-3 shadow-sm" id="staffTab" role="tablist">
         <li class="nav-item">
-            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#checkinTab"><i class="fas fa-qrcode me-1"></i> ลงชื่อ/สแกน</button>
+            <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#checkinTab"><i class="fas fa-qrcode me-1"></i> สแกนลงชื่อ</button>
         </li>
         <li class="nav-item">
             <button class="nav-link" data-bs-toggle="pill" data-bs-target="#reportTab" onclick="loadSessionsForReport()"><i class="fas fa-list me-1"></i> รายชื่อ</button>
@@ -71,46 +75,41 @@
     </ul>
 
     <div class="tab-content">
-        <!-- 1. หน้าลงชื่อ (Check-in/Out) พร้อมระบบสแกน -->
+        <!-- 1. หน้าลงชื่อ (Check-in/Out) -->
         <div class="tab-pane fade show active" id="checkinTab">
-            <div class="card mb-3 p-3">
-                <h6 class="fw-bold text-muted mb-3 text-center"><i class="fas fa-camera me-2"></i> สแกน QR Code จากอีเมลผู้สมัคร</h6>
+            <div class="d-flex justify-content-center mb-3">
+                <div class="btn-group w-100 shadow-sm" role="group">
+                    <input type="radio" class="btn-check" name="scanMode" id="modeIn" value="confirmCheckIn" autocomplete="off" checked>
+                    <label class="btn btn-outline-success fs-5 fw-bold py-3" for="modeIn"><i class="fas fa-sign-in-alt me-2"></i>โหมดเช็คอิน</label>
+
+                    <input type="radio" class="btn-check" name="scanMode" id="modeOut" value="confirmCheckOut" autocomplete="off">
+                    <label class="btn btn-outline-warning fs-5 fw-bold py-3" for="modeOut"><i class="fas fa-sign-out-alt me-2"></i>โหมดเช็คเอาท์</label>
+                </div>
+            </div>
+
+            <div id="actionResult" style="display: none;" class="mb-3"></div>
+
+            <div class="card mb-3 p-3 border-0 bg-white shadow-sm">
+                <h6 class="fw-bold text-muted mb-3 text-center"><i class="fas fa-camera me-2"></i> สแกน QR Code เพื่อบันทึกอัตโนมัติ</h6>
                 <div id="reader"></div>
             </div>
 
-            <div class="card p-4">
-                <h6 class="fw-bold text-muted mb-3">หรือค้นหาด้วยรหัส/เบอร์โทร</h6>
-                <div class="input-group mb-3">
-                    <input type="text" id="searchInput" class="form-control form-control-lg" placeholder="FA-XXXX หรือ 08XXXXXXXX">
-                    <button class="btn btn-primary px-4" onclick="searchUser()"><i class="fas fa-search"></i></button>
+            <div class="card p-4 border-0 shadow-sm">
+                <h6 class="fw-bold text-muted mb-3">พิมพ์รหัสด้วยตัวเอง (Manual)</h6>
+                <div class="input-group">
+                    <input type="text" id="searchInput" class="form-control form-control-lg bg-light" placeholder="FA-XXXX หรือเบอร์โทรศัพท์">
+                    <button class="btn btn-primary px-4" onclick="processManualInput()"><i class="fas fa-paper-plane"></i></button>
                 </div>
-                
                 <div class="loader" id="searchLoader"><div class="spinner-border text-primary"></div></div>
-
-                <div id="searchResult">
-                    <div class="p-3 bg-light rounded-3 mb-3 border text-center">
-                        <h4 id="resName" class="fw-bold text-primary mb-1"></h4>
-                        <p id="resID" class="text-danger fw-bold mb-1"></p>
-                        <p id="resSession" class="text-muted mb-0"></p>
-                    </div>
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <button class="btn btn-success w-100 btn-action" id="btnIn" onclick="markAttendance('confirmCheckIn')">CHECK-IN</button>
-                        </div>
-                        <div class="col-6">
-                            <button class="btn btn-warning w-100 btn-action" id="btnOut" onclick="markAttendance('confirmCheckOut')">CHECK-OUT</button>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
 
         <!-- 2. หน้าดูรายชื่อ (Report) -->
         <div class="tab-pane fade" id="reportTab">
-            <div class="card p-3">
+            <div class="card p-3 shadow-sm border-0">
                 <div class="mb-3">
                     <label class="form-label fw-bold text-primary">เลือกรอบที่ต้องการดู</label>
-                    <select class="form-select" id="reportSessionSelect" onchange="loadParticipants()">
+                    <select class="form-select bg-light" id="reportSessionSelect" onchange="loadParticipants()">
                         <option value="">-- เลือกรอบ --</option>
                     </select>
                 </div>
@@ -131,7 +130,23 @@
 
         <!-- 3. หน้าตั้งค่า (Config) -->
         <div class="tab-pane fade" id="configTab">
-            <div class="card p-3">
+            <!-- ส่วนเพิ่มรอบการอบรมใหม่ -->
+            <div class="card p-3 shadow-sm border-0 mb-4 bg-light">
+                <h6 class="fw-bold text-primary mb-3"><i class="fas fa-plus-circle me-2"></i>เพิ่มรอบการอบรมใหม่</h6>
+                <div class="row g-2">
+                    <div class="col-md-7 col-12">
+                        <input type="text" id="newSessionName" class="form-control" placeholder="ชื่อรอบ (เช่น 17 ก.ค. 69 รอบเช้า)">
+                    </div>
+                    <div class="col-md-3 col-8">
+                        <input type="number" id="newSessionMax" class="form-control" placeholder="จำนวนที่รับ">
+                    </div>
+                    <div class="col-md-2 col-4">
+                        <button class="btn btn-success w-100 fw-bold" onclick="addNewSession()">เพิ่ม</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card p-3 shadow-sm border-0">
                 <h5 class="fw-bold mb-3 text-primary">จัดการโควตารอบอบรม</h5>
                 <div class="table-responsive">
                     <table class="table">
@@ -157,15 +172,17 @@
 <script src="https://unpkg.com/html5-qrcode"></script>
 
 <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyZYT4pzuggWa_ITBsvUBGzfxMv264BLcu39yvxLwgsNZEBCAthFzmDKUQEFnXzulMy/exec";
-    let currentFoundUser = null;
+    // ⚠️ ลิงก์ API ของคุณ
+    const API_URL = "https://script.google.com/macros/s/AKfycbw5ea5gkA-AcRg_rJg7AI3Y5DmxwIwD1gX8-RAlQknkJ-0he8EwejxeCAWMuNyyFpgXuw/exec";
+    
+    let isProcessing = false;
 
-    // --- 1. ระบบสแกน QR Code ---
+    // --- 1. ระบบสแกน QR Code (แบบต่อเนื่อง) ---
     function onScanSuccess(decodedText, decodedResult) {
+        if(isProcessing) return; 
         document.getElementById('searchInput').value = decodedText;
-        searchUser(decodedText);
-        html5QrcodeScanner.clear();
-        setTimeout(renderScanner, 3000); 
+        html5QrcodeScanner.clear(); 
+        executeAction(decodedText);
     }
 
     function renderScanner() {
@@ -175,78 +192,50 @@
     }
     renderScanner();
 
-    // --- 2. ฟังก์ชันค้นหาผู้ใช้งาน (อัปเดตแก้ CORS & Caching) ---
-    async function searchUser(scannedValue = null) {
-        const query = scannedValue || document.getElementById('searchInput').value;
-        if(!query) return;
-
-        showLoader('searchLoader', true);
-        document.getElementById('searchResult').style.display = 'none';
-
-        try {
-            // เพิ่ม timestamp ป้องกัน Browser นำ Cache เก่ามาใช้
-            const finalUrl = `${API_URL}?action=searchUser&query=${encodeURIComponent(query)}&t=${new Date().getTime()}`;
-            const res = await fetch(finalUrl);
-            
-            if (!res.ok) throw new Error('Network Error');
-            const result = await res.json();
-
-            if(result.success) {
-                const data = result.data;
-                currentFoundUser = data[6]; // เก็บ ID
-                document.getElementById('resName').innerText = data[2];
-                document.getElementById('resID').innerText = data[6];
-                document.getElementById('resSession').innerText = `รอบ: ${data[5]}`;
-                document.getElementById('searchResult').style.display = 'block';
-                
-                if (navigator.vibrate) navigator.vibrate(100);
-            } else {
-                Swal.fire('ไม่พบข้อมูล', result.message || 'ไม่พบรายชื่อที่ตรงกัน', 'error');
-            }
-        } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'เชื่อมต่อฐานข้อมูลล้มเหลว กรุณาตรวจสอบการ Deploy เว็บแอป', 'error');
-            console.error(e);
-        } finally {
-            showLoader('searchLoader', false);
-        }
+    // --- 2. การทำงานหลัก (Check-in/Out) ---
+    function processManualInput() {
+        const query = document.getElementById('searchInput').value.trim();
+        if(query) executeAction(query);
     }
 
-    // --- 3. ฟังก์ชัน Check-in / Out (อัปเดตเอา no-cors ออกเพื่อให้รับ JSON ได้) ---
-    async function markAttendance(action) {
-        const btn = event.target;
-        const originalText = btn.innerHTML;
-        btn.disabled = true;
-        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    async function executeAction(query) {
+        isProcessing = true;
+        showLoader('searchLoader', true);
+        const selectedMode = document.querySelector('input[name="scanMode"]:checked').value;
+        const resultDiv = document.getElementById('actionResult');
+        resultDiv.style.display = 'none';
 
         try {
             const formData = new URLSearchParams();
-            formData.append('action', action);
-            formData.append('query', currentFoundUser);
+            formData.append('action', selectedMode);
+            formData.append('query', query);
 
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                body: formData
-            });
-            
+            const response = await fetch(API_URL, { method: 'POST', body: formData });
             const result = await response.json();
 
+            resultDiv.style.display = 'block';
             if(result.success) {
-                Swal.fire({ title: 'สำเร็จ!', text: result.message, icon: 'success', timer: 2000 });
-                document.getElementById('searchInput').value = '';
-                document.getElementById('searchResult').style.display = 'none';
+                if (navigator.vibrate) navigator.vibrate(200);
+                resultDiv.innerHTML = `<div class="alert alert-success fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-check-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             } else {
-                Swal.fire('ข้อผิดพลาด', result.message, 'error');
+                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                resultDiv.innerHTML = `<div class="alert alert-danger fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-times-circle fa-2x mb-2 d-block"></i>${result.message}</div>`;
             }
         } catch (e) {
-            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถบันทึกข้อมูลได้: ' + e.message, 'error');
-            console.error(e);
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = `<div class="alert alert-warning fs-5 fw-bold text-center shadow-sm border-0 py-4 mb-0"><i class="fas fa-exclamation-triangle fa-2x mb-2 d-block"></i>เกิดข้อผิดพลาดในการเชื่อมต่อ</div>`;
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = originalText;
+            showLoader('searchLoader', false);
+            document.getElementById('searchInput').value = '';
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+                renderScanner();
+                isProcessing = false;
+            }, 2500);
         }
     }
 
-    // --- 4. ฟังก์ชันโหลดรายงานและตั้งค่า (อัปเดตเพิ่ม Cache-busting) ---
+    // --- 3. ฟังก์ชันโหลดรายงาน ---
     async function loadSessionsForReport() {
         const sel = document.getElementById('reportSessionSelect');
         const res = await fetch(`${API_URL}?action=getSessions&t=${new Date().getTime()}`);
@@ -271,6 +260,7 @@
         });
     }
 
+    // --- 4. ฟังก์ชันจัดการ Config (โควตา และ เพิ่มรอบ) ---
     async function loadConfig() {
         const tbody = document.getElementById('configTableBody');
         tbody.innerHTML = '<tr><td colspan="4" class="text-center">กำลังโหลด...</td></tr>';
@@ -282,9 +272,9 @@
             tbody.innerHTML += `
                 <tr>
                     <td><small>${s.name}</small></td>
-                    <td><input type="number" class="form-control form-control-sm" id="max_${s.name}" value="${s.max}" style="width:70px"></td>
+                    <td><input type="number" class="form-control form-control-sm text-center" id="max_${s.name}" value="${s.max}" style="width:70px"></td>
                     <td class="text-center">${s.booked}</td>
-                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')"><i class="fas fa-save"></i></button></td>
+                    <td><button class="btn btn-sm btn-primary" onclick="updateMax('${s.name}')"><i class="fas fa-save"></i> แก้ไข</button></td>
                 </tr>`;
         });
     }
@@ -307,6 +297,38 @@
             }
         } catch (e) {
             Swal.fire('เกิดข้อผิดพลาด', 'อัปเดตล้มเหลว', 'error');
+        }
+    }
+
+    // ฟังก์ชันเพิ่มรอบการอบรมใหม่
+    async function addNewSession() {
+        const name = document.getElementById('newSessionName').value.trim();
+        const max = document.getElementById('newSessionMax').value;
+        
+        if(!name || !max) {
+            Swal.fire('แจ้งเตือน', 'กรุณากรอกชื่อรอบและจำนวนที่รับให้ครบถ้วน', 'warning');
+            return;
+        }
+
+        try {
+            const formData = new URLSearchParams();
+            formData.append('action', 'addSession');
+            formData.append('sessionName', name);
+            formData.append('maxSlots', max);
+
+            const response = await fetch(API_URL, { method: 'POST', body: formData });
+            const result = await response.json();
+            
+            if(result.success) {
+                Swal.fire('สำเร็จ', result.message, 'success');
+                document.getElementById('newSessionName').value = '';
+                document.getElementById('newSessionMax').value = '';
+                loadConfig(); // โหลดตารางใหม่
+            } else {
+                Swal.fire('ข้อผิดพลาด', result.message, 'error');
+            }
+        } catch (e) {
+            Swal.fire('เกิดข้อผิดพลาด', 'ไม่สามารถเพิ่มรอบได้', 'error');
         }
     }
 
